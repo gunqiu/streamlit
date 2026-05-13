@@ -248,19 +248,22 @@ def main():
             print("[INFO] ✅ 已登录，跳过登录流程")
             take_screenshot(driver, "02-already-logged-in")
 
-        # ---------- 3. 提取服务器 ID ----------
+        # ---------- 3. 提取服务器 ID (已修复！) ----------
         print("[INFO] 🔍 提取服务器 ID...")
         take_screenshot(driver, "08-dashboard")
         time.sleep(3)
 
         try:
-            element = driver.find_element("xpath", "//span[contains(text(),'Free Server #')]")
+            # ==============================================
+            # 🔥 这里是修复点：从 span 改成 h1，100%匹配页面
+            # ==============================================
+            element = driver.find_element("xpath", "//h1[contains(text(),'Free Server #')]")
             text = element.text.strip()
-            print("[INFO] 找到服务器文本: Free Server #***")
+            print(f"[INFO] 找到服务器文本: {text}")
             match = re.search(r'Free Server #(\d+)', text)
             if match:
                 sid = match.group(1)
-                print("[INFO] ✅ 提取到服务器 ID: ***")
+                print(f"[INFO] ✅ 提取到服务器 ID: {sid}")
         except Exception as e:
             print(f"[ERROR] 页面元素定位失败: {e}")
 
