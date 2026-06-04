@@ -5,7 +5,7 @@ import requests
 from DrissionPage import ChromiumPage, ChromiumOptions
 
 # --- 配置区 ---
-URL = "https://g4f.gg/fgmfurni"
+URL = "https://g4f.gg/dsfyos"
 TARGET_HOURS = 72
 MAX_LOOPS = 20
 
