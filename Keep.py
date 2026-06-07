@@ -114,7 +114,7 @@ def run(playwright: Playwright) -> None:
         page = context.new_page()
         
         # 从环境变量获取目标URL
-        target_url = os.getenv('TARGET_URL', 'https://sheet-tool-zsjsj.streamlit.app')
+        target_url = os.getenv('TARGET_URL', 'https://python-xray-argo.streamlit.app')
         print(f"🎯 目标URL: {target_url}")
         
         success = check_url_status(page, target_url)
