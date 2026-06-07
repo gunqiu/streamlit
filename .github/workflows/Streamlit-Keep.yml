@@ -8,8 +8,9 @@ on:
         required: false
         default: 'https://python-xray-argo.streamlit.app'
         type: string
-schedule:
-    - cron: '0 */6 * * *'   # 每6小时一次（UTC）
+  schedule:
+    - cron: '0 */6 * * *'   # 每6小时自动运行一次
+
 permissions:
   contents: read
 
