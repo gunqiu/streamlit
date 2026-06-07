@@ -41,7 +41,7 @@ jobs:
           
       - name: 执行唤醒脚本
         env:
-          TARGET_URL: ${{ github.event.inputs.target_url || 'https://sheet-tool-zsjsj.streamlit.app' }}
+          TARGET_URL: ${{ github.event.inputs.target_url || 'https://python-xray-argo.streamlit.app' }}
         run: |
           echo "开始执行 Streamlit 应用唤醒任务..."
           python Keep.py
