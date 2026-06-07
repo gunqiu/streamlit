@@ -1,158 +1,55 @@
-name: HidenCloud 续期
+name: Streamlit 自动唤醒
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '33 3 * * *'   # 自动更新下次运行时间
+    inputs:
+      target_url:
+        description: '目标链接'
+        required: false
+        default: 'https://sheet-tool-zsjsj.streamlit.app'
+        type: string
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 jobs:
-  renew:
+  wakeup:
+    name: 唤醒应用
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      actions: write
+    
     steps:
-      - name: 拉取仓库
+      - name: 拉取仓库代码
         uses: actions/checkout@v4
 
       - name: 设置 Python 环境
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
           
-      - name: 安装依赖 
+      - name: 安装依赖包
         run: |
-          pip install --quiet seleniumbase requests beautifulsoup4
-      - name: 安装并启动代理
+          echo "正在安装 Playwright..."
+          pip install playwright
+          echo "正在安装 Firefox 浏览器..."
+          python -m playwright install firefox
+          echo "依赖安装完成！"
+          
+      - name: 执行唤醒脚本
         env:
-          PROXY_NODE: ${{ secrets.PROXY_NODE }}
+          TARGET_URL: ${{ github.event.inputs.target_url || 'https://sheet-tool-zsjsj.streamlit.app' }}
         run: |
-          if [ -z "$PROXY_NODE" ]; then
-            echo "[INFO] 未配置代理，直连模式"
-            exit 0
-          fi
-          
-          wget -q https://github.com/oyz6/action/releases/download/proxy/Xray-linux-64.zip
-          unzip -q Xray-linux-64.zip -d xray && chmod +x xray/xray
-          
-          python3 << 'PYEOF'
-          import os, sys, json, base64
-          from urllib.parse import parse_qs, unquote, urlparse
-          def mask(s):
-              return f"{s[:2]}***{s[-2:]}" if len(s) > 4 else "****"
-          url = os.environ.get("PROXY_NODE", "").strip()
-          if not url:
-              print("[ERROR] PROXY_NODE 为空")
-              sys.exit(1)
-          config = {
-              "log": {"loglevel": "warning"},
-              "inbounds": [
-                  {"port": 1080, "listen": "127.0.0.1", "protocol": "socks", "settings": {"udp": True}},
-                  {"port": 1081, "listen": "127.0.0.1", "protocol": "http"}
-              ],
-              "outbounds": []
-          }
-          if url.startswith("vmess://"):
-              content = url[8:]
-              if "#" in content:
-                  content = content.split("#")[0]
-              
-              try:
-                  # 修复 Base64 填充并使用 errors='ignore' 避免 utf-8 解码崩溃
-                  missing_padding = len(content) % 4
-                  if missing_padding:
-                      content += '=' * (4 - missing_padding)
-                  
-                  decoded_bytes = base64.b64decode(content)
-                  # 核心修复：使用 ignore 模式跳过非法字符
-                  decoded_text = decoded_bytes.decode("utf-8", errors="ignore")
-                  vm = json.loads(decoded_text)
-                  
-                  address = vm.get("add", "")
-                  port = int(vm.get("port", 443))
-                  uuid = vm.get("id", "")
-                  network = vm.get("net", "tcp")
-                  tls = vm.get("tls", "none")
-                  
-                  print(f"[INFO] VMess -> {mask(address)}:{port} (net: {network}, tls: {tls})")
-                  
-                  outbound = {
-                      "protocol": "vmess",
-                      "settings": {
-                          "vnext": [{
-                              "address": address,
-                              "port": port,
-                              "users": [{"id": uuid, "alterId": 0, "security": "auto"}]
-                          }]
-                      },
-                      "streamSettings": {
-                          "network": network,
-                          "security": "tls" if tls == "tls" else "none"
-                      }
-                  }
-                  
-                  if tls == "tls":
-                      outbound["streamSettings"]["tlsSettings"] = {
-                          "serverName": vm.get("sni", vm.get("host", address)),
-                          "allowInsecure": False
-                      }
-                  
-                  if network == "ws":
-                      outbound["streamSettings"]["wsSettings"] = {
-                          "path": vm.get("path", "/"),
-                          "headers": {"Host": vm.get("host", address)}
-                      }
-                      
-                  config["outbounds"].append(outbound)
-                  
-              except Exception as e:
-                  print(f"[ERROR] VMess 解析失败: {e}")
-                  sys.exit(1)
-          else:
-              print("[ERROR] 脚本当前仅配置为处理 VMess 协议")
-              sys.exit(1)
-          with open("xray_config.json", "w") as f:
-              json.dump(config, f, indent=2)
-          PYEOF
-          
-          ./xray/xray run -c xray_config.json > xray.log 2>&1 &
-          sleep 5
-          
-          # 测试代理连接
-          if curl -x socks5://127.0.0.1:1080 -s --max-time 15 https://api.ipify.org > /dev/null 2>&1; then
-            echo "[INFO] ✅ 代理连接成功"
-            echo "PROXY_SERVER=socks5://127.0.0.1:1080" >> $GITHUB_ENV
-          else
-            echo "[ERROR] ❌ 代理连接失败"
-            cat xray.log
-            exit 1
-          fi
-      - name: 恢复浏览器状态缓存
-        uses: actions/cache/restore@v4
-        with:
-          path: browser_state
-          key: hidencloud-state-${{ github.run_id }}
-          restore-keys: hidencloud-state-
+          echo "开始执行 Streamlit 应用唤醒任务..."
+          python Keep.py
+          echo "唤醒任务执行完毕！"
 
-      - name: 清理 Chrome 锁文件
-        run: |
-          PROFILE_DIR="browser_state/selenium_profile"
-          if [ -d "$PROFILE_DIR" ]; then
-            find "$PROFILE_DIR" -name "SingletonLock" -delete 2>/dev/null || true
-          fi
-      - name: 运行续期脚本
-        env:
-          HIDENCLOUD: ${{ secrets.HIDENCLOUD }}
-          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          PROXY_SERVER: ${{ env.PROXY_SERVER }}
-        run: |
-          python3 main.py 2>&1 | tee renew.log
-      - name: 保存浏览器状态缓存
-        if: success()
-        uses: actions/cache/save@v4
+      - name: 清理历史运行记录
+        uses: Mattraks/delete-workflow-runs@v2
         with:
-          path: browser_state
-          key: hidencloud-state-${{ github.run_id }}
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          delete_workflow_pattern: ${{ github.workflow }}
+          retain_days: 0
+          keep_minimum_runs: 3
